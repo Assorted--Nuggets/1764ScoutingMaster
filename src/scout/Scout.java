@@ -10,7 +10,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Application;
@@ -35,6 +38,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javax.swing.SwingUtilities;
 
 /**
  *
@@ -58,15 +62,19 @@ public class Scout extends Application
     public static Slider teamwork, security, durability;
     public static Button exportBtn;
     public static FileChooser importer;
-    
+
+    public static ServerSocket server;
+    public static Socket client;
+    public static ObjectInputStream input;
+
     @Override
     public void start(final Stage primaryStage)
     {
         primaryStage.setTitle("1764 Scouting");
         importer = new FileChooser();
-        
+
         importer.getExtensionFilters().add(new FileChooser.ExtensionFilter("SDB", "*.sdb"));
-        
+
         initGrids();
         addTop();
         addAutonomous();
@@ -80,13 +88,28 @@ public class Scout extends Application
             @Override
             public void handle(ActionEvent event)
             {
-                File file = importer.showOpenDialog(primaryStage);
-                if(file != null)
-                {
-                    importSDB(file);
-                }
-                
+
+                SwingUtilities.invokeLater(
+                        new Runnable()
+                        {
+                            public void run()
+                            {
+                                try
+                                {
+                                    server = new ServerSocket(3434);
+                                    client = server.accept();
+                                    input = new ObjectInputStream(client.getInputStream());
+                                } catch (IOException ex)
+                                {
+                                    Logger.getLogger(Scout.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            }
+                        }
+                );
+
+                importSDB();
             }
+
         });
         mainGrid.add(exportBtn, 0, 6);
 
@@ -152,7 +175,7 @@ public class Scout extends Application
         roundNumber = new TextField();
         roundNumber.setPromptText("Round Number");
         topGrid.add(roundNumber, 20, 0);
-        
+
         mainGrid.add(topGrid, 0, 0);
     }
 
@@ -271,11 +294,34 @@ public class Scout extends Application
         mainGrid.add(ratingGrid, 0, 5);
     }
 
-    public static void importSDB(File filename)
+    public static void importSDB()
     {
         try
         {
-            BufferedReader reader = new BufferedReader(new FileReader(filename));
+            PrintWriter writer = new PrintWriter(new File("temp.sdb"));
+
+            String line;
+
+            while (!((line = (String) input.readObject()).equals("end")))
+            {
+                writer.println(line);
+            }
+
+            writer.close();
+        } catch (FileNotFoundException ex)
+        {
+            Logger.getLogger(Scout.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex)
+        {
+            Logger.getLogger(Scout.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (ClassNotFoundException ex)
+        {
+            Logger.getLogger(Scout.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        try
+        {
+            BufferedReader reader = new BufferedReader(new FileReader(new File("temp.sdb")));
 
             String currentLine;
 
@@ -288,125 +334,119 @@ public class Scout extends Application
                     {
                         teamNumTxt.setText(splitLine[1]);
                     }
-                    
-                    if(splitLine[0].equals("roundnum"))
+
+                    if (splitLine[0].equals("roundnum"))
                     {
                         roundNumber.setText(splitLine[1]);
                     }
 
                     if (splitLine[0].equals("mobile"))
                     {
-                        if(splitLine[1].equals("1"))
+                        if (splitLine[1].equals("1"))
                         {
                             mobile.setSelected(true);
-                        }
-                        else
+                        } else
                         {
                             mobile.setSelected(false);
                         }
                     }
-                    
-                    if(splitLine[0].equals("noshow"))
+
+                    if (splitLine[0].equals("noshow"))
                     {
-                        if(splitLine[1].equals("1"))
+                        if (splitLine[1].equals("1"))
                         {
                             noShow.setSelected(true);
-                        }
-                        else
+                        } else
                         {
                             noShow.setSelected(false);
                         }
                     }
-                    
-                    if(splitLine[0].equals("totesauto"))
+
+                    if (splitLine[0].equals("totesauto"))
                     {
                         toteScored.setText(splitLine[1]);
                     }
-                    
-                    if(splitLine[0].equals("binsauto"))
+
+                    if (splitLine[0].equals("binsauto"))
                     {
                         binStacked.setText(splitLine[1]);
                     }
-                    
-                    if(splitLine[0].equals("noodauto"))
+
+                    if (splitLine[0].equals("noodauto"))
                     {
                         noodleInserted.setText(splitLine[1]);
                     }
-                    
-                    if(splitLine[0].equals("ismoving"))
+
+                    if (splitLine[0].equals("ismoving"))
                     {
-                        if(splitLine[1].equals("1"))
+                        if (splitLine[1].equals("1"))
                         {
                             isMoving.setSelected(true);
-                        }
-                        else
+                        } else
                         {
                             isMoving.setSelected(false);
                         }
                     }
-                    
-                    if(splitLine[0].equals("teletotes"))
+
+                    if (splitLine[0].equals("teletotes"))
                     {
                         telTotes.setText(splitLine[1]);
                     }
-                    
-                    if(splitLine[0].equals("telebins"))
+
+                    if (splitLine[0].equals("telebins"))
                     {
                         telBins.setText(splitLine[1]);
                     }
-                    
-                    if(splitLine[0].equals("telenood"))
+
+                    if (splitLine[0].equals("telenood"))
                     {
                         telNoodles.setText(splitLine[1]);
                     }
-                    
-                    if(splitLine[0].equals("lifttote"))
+
+                    if (splitLine[0].equals("lifttote"))
                     {
-                        if(splitLine[1].equals("1"))
+                        if (splitLine[1].equals("1"))
                         {
                             liftTotes.setSelected(true);
-                        }
-                        else
+                        } else
                         {
                             liftTotes.setSelected(false);
                         }
                     }
-                    
-                    if(splitLine[0].equals("liftbin"))
+
+                    if (splitLine[0].equals("liftbin"))
                     {
-                        if(splitLine[1].equals("1"))
+                        if (splitLine[1].equals("1"))
                         {
                             liftBins.setSelected(true);
-                        }
-                        else
+                        } else
                         {
                             liftBins.setSelected(false);
                         }
                     }
-                    
-                    if(splitLine[0].equals("liftnood"))
+
+                    if (splitLine[0].equals("liftnood"))
                     {
-                        if(splitLine[1].equals("1"))
+                        if (splitLine[1].equals("1"))
                         {
                             liftNoodles.setSelected(true);
-                        }
-                        else
+                        } else
                         {
                             liftNoodles.setSelected(false);
                         }
                     }
-                    
-                    if(splitLine[0].equals("stacking"))
+
+                    if (splitLine[0].equals("stacking"))
                     {
                         teamwork.setValue(Float.parseFloat(splitLine[1]));
                     }
-                    
-                    if(splitLine[0].equals("security"))
+
+                    if (splitLine[0].equals("security"))
                     {
                         security.setValue(Float.parseFloat(splitLine[1]));
                     }
-                    
-                    if(splitLine[0].equals("durability"))
+
+                    if (splitLine[0].equals("durability"))
                     {
                         durability.setValue(Float.parseFloat(splitLine[1]));
                     }
