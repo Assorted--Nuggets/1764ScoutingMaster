@@ -1,0 +1,4 @@
+.check-box:selected .mark
+{
+    -fx-background-color: #0099FF;
+}
